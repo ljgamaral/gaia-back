@@ -62,4 +62,19 @@ def analyze(request: AnalyzeRequest) -> dict:
         }
         
     elif request.type == "text":
-        return {"message": f"Analisando o texto: {request.content}"}
+        try:
+            label, reason = label_row({
+                "title": "Texto fornecido pelo usuário",
+                "content": request.content,
+            })
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+        return {
+            "success": True,
+            "content": {
+                "label": label,
+                "reason": reason,
+                "title": "Texto fornecido pelo usuário",
+                "text": request.content,
+            }
+        }
