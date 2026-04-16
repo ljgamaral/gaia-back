@@ -1,0 +1,36 @@
+{
+  "source": "/Users/leandrojuniogoncalvesamaral/Desktop2/Desktop/APS4/extracted_urls.json",
+  "label_source": "human_label from sentiment_dataset_rotulado.csv",
+  "total_input": 2000,
+  "total_usable": 1998,
+  "label_distribution": {
+    "negativo": 954,
+    "positivo": 826,
+    "neutro": 218
+  },
+  "training_note": "O modelo usa a coluna human_label quando um CSV rotulado e informado. Caso contrario, usa rotulos automaticos de polaridade ambiental.",
+  "validation_against_training_labels": {
+    "accuracy": 0.723,
+    "test_size": 400,
+    "labels": {
+      "negativo": {
+        "precision": 0.806,
+        "recall": 0.745,
+        "f1": 0.774,
+        "support": 184
+      },
+      "neutro": {
+        "precision": 0.479,
+        "recall": 0.404,
+        "f1": 0.438,
+        "support": 57
+      },
+      "positivo": {
+        "precision": 0.709,
+        "recall": 0.811,
+        "f1": 0.757,
+        "support": 159
+      }
+    }
+  }
+}

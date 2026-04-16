@@ -1,0 +1,35 @@
+{
+  "source": "/Users/leandrojuniogoncalvesamaral/Desktop2/Desktop/APS4/extracted_urls.json",
+  "total_input": 2000,
+  "total_usable": 1998,
+  "label_distribution": {
+    "negativo": 1069,
+    "positivo": 565,
+    "neutro": 364
+  },
+  "training_note": "Os rotulos de treino foram gerados automaticamente por uma heuristica de polaridade ambiental. Para um modelo supervisionado validado, revise uma amostra no CSV e treine novamente com rotulos humanos.",
+  "validation_against_heuristic_labels": {
+    "accuracy": 0.63,
+    "test_size": 400,
+    "labels": {
+      "negativo": {
+        "precision": 0.705,
+        "recall": 0.775,
+        "f1": 0.738,
+        "support": 191
+      },
+      "neutro": {
+        "precision": 0.556,
+        "recall": 0.307,
+        "f1": 0.395,
+        "support": 114
+      },
+      "positivo": {
+        "precision": 0.543,
+        "recall": 0.726,
+        "f1": 0.622,
+        "support": 95
+      }
+    }
+  }
+}
