@@ -9,7 +9,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://gaia-verify.vercel.app"],
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,7 +48,11 @@ def analyze(request: AnalyzeRequest) -> dict:
     if request.type == "link":
         try:
             content = extract_many([request.content], continue_on_error=False, timeout_seconds=5, max_workers=1)
-            label, reason = label_row(content[0])
+            article = content[0]
+            label, reason = label_row({
+                "title": article.get("title", ""),
+                "text": article.get("content", ""),
+            })
         except Exception as e:
             return {"success": False, "error": str(e)}
         return {
@@ -56,14 +60,17 @@ def analyze(request: AnalyzeRequest) -> dict:
             "content": {
                 "label": label,
                 "reason": reason,
-                "title": content[0].get("title", ""),
-                "text": content[0].get("content", ""),
+                "title": article.get("title", ""),
+                "text": article.get("content", ""),
             }
         }
         
     elif request.type == "text":
         try:
-            label, reason = label_row(request.content)
+            label, reason = label_row({
+                "title": "Texto fornecido pelo usuário",
+                "text": request.content,
+            })
         except Exception as e:
             return {"success": False, "error": str(e)}
         return {
@@ -75,3 +82,5 @@ def analyze(request: AnalyzeRequest) -> dict:
                 "text": request.content,
             }
         }
+    
+    return {"success": False, "error": "Tipo de análise inválido."}
