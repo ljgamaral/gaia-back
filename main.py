@@ -57,7 +57,7 @@ def analyze(request: AnalyzeRequest) -> dict:
                 "label": label,
                 "reason": reason,
                 "title": content[0].get("title", ""),
-                "text": content[0].get("text", ""),
+                "text": content[0].get("content", ""),
             }
         }
         
