@@ -9,11 +9,15 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["https://gaia-verify.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+def health_check() -> dict:
+    return {"status": "ok"}
 
 class ExtractRequest(BaseModel):
     urls: Optional[List[HttpUrl]] = None
