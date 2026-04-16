@@ -63,10 +63,7 @@ def analyze(request: AnalyzeRequest) -> dict:
         
     elif request.type == "text":
         try:
-            label, reason = label_row({
-                "title": "Texto fornecido pelo usuário",
-                "content": request.content,
-            })
+            label, reason = label_row(request.content)
         except Exception as e:
             return {"success": False, "error": str(e)}
         return {
