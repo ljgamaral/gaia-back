@@ -3,7 +3,7 @@ from extraction import load_urls, extract_many, save_articles
 from typing import Optional, List
 from pydantic import HttpUrl, BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from model_predictor import predict_sentiment
+from model_predictor import predict_sentiment, predict_topic
 
 app = FastAPI()
 
@@ -49,7 +49,9 @@ def analyze(request: AnalyzeRequest) -> dict:
         try:
             content = extract_many([request.content], continue_on_error=False, timeout_seconds=5, max_workers=1)
             article = content[0]
-            label, confidence = predict_sentiment(article.get("title", "") + "\n" + article.get("content", ""))
+            text = article.get("title", "") + "\n" + article.get("content", "")
+            label, confidence = predict_sentiment(text)
+            topic, topic_confidence = predict_topic(text)
         except Exception as e:
             return {"success": False, "error": str(e)}
         return {
@@ -58,6 +60,8 @@ def analyze(request: AnalyzeRequest) -> dict:
                 "label": label,
                 "confidence": confidence,
                 "reason": f"Modelo scikit-learn com confiança {confidence}",
+                "topic": topic,
+                "topic_confidence": topic_confidence,
                 "title": article.get("title", ""),
                 "text": article.get("content", ""),
             }
@@ -66,6 +70,7 @@ def analyze(request: AnalyzeRequest) -> dict:
     elif request.type == "text":
         try:
             label, confidence = predict_sentiment(request.content)
+            topic, topic_confidence = predict_topic(request.content)
         except Exception as e:
             return {"success": False, "error": str(e)}
         return {
@@ -74,6 +79,8 @@ def analyze(request: AnalyzeRequest) -> dict:
                 "label": label,
                 "confidence": confidence,
                 "reason": f"Modelo scikit-learn com confiança {confidence}",
+                "topic": topic,
+                "topic_confidence": topic_confidence,
                 "title": "Texto fornecido pelo usuário",
                 "text": request.content,
             }

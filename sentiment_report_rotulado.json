@@ -2,6 +2,7 @@
   "source": "/Users/leandrojuniogoncalvesamaral/Desktop2/Desktop/APS4/backend/extracted_urls.json",
   "algorithm": "scikit-learn Pipeline(CountVectorizer, MultinomialNB)",
   "label_source": "human_label from sentiment_dataset_rotulado.csv",
+  "topic_source": "heuristic",
   "total_input": 2000,
   "total_usable": 1998,
   "label_distribution": {
@@ -9,7 +10,19 @@
     "positivo": 859,
     "neutro": 226
   },
-  "training_note": "O modelo usa a coluna human_label quando um CSV rotulado e informado. Caso contrario, usa rotulos automaticos de polaridade ambiental.",
+  "topic_distribution": {
+    "enchente": 459,
+    "garimpo": 97,
+    "clima": 420,
+    "fauna": 549,
+    "desmatamento": 194,
+    "poluicao": 34,
+    "queimada": 90,
+    "preservacao": 105,
+    "residuos": 39,
+    "outros": 11
+  },
+  "training_note": "O modelo de sentimento usa human_label quando um CSV rotulado e informado. O modelo de tema usa topic_label ou human_topic quando existirem. Caso contrario, usa rotulos automaticos como ponto de partida.",
   "validation_against_training_labels": {
     "accuracy": 0.76,
     "test_size": 400,
@@ -31,6 +44,72 @@
         "recall": 0.863,
         "f1": 0.744,
         "support": 153
+      }
+    }
+  },
+  "topic_validation_against_training_labels": {
+    "accuracy": 0.718,
+    "test_size": 400,
+    "labels": {
+      "clima": {
+        "precision": 0.75,
+        "recall": 0.837,
+        "f1": 0.791,
+        "support": 86
+      },
+      "desmatamento": {
+        "precision": 0.735,
+        "recall": 0.676,
+        "f1": 0.704,
+        "support": 37
+      },
+      "enchente": {
+        "precision": 0.818,
+        "recall": 0.976,
+        "f1": 0.89,
+        "support": 83
+      },
+      "fauna": {
+        "precision": 0.579,
+        "recall": 0.794,
+        "f1": 0.669,
+        "support": 102
+      },
+      "garimpo": {
+        "precision": 0.9,
+        "recall": 0.9,
+        "f1": 0.9,
+        "support": 20
+      },
+      "outros": {
+        "precision": 0.5,
+        "recall": 0.1,
+        "f1": 0.167,
+        "support": 10
+      },
+      "poluicao": {
+        "precision": 1.0,
+        "recall": 0.2,
+        "f1": 0.333,
+        "support": 10
+      },
+      "preservacao": {
+        "precision": 1.0,
+        "recall": 0.095,
+        "f1": 0.174,
+        "support": 21
+      },
+      "queimada": {
+        "precision": 1.0,
+        "recall": 0.25,
+        "f1": 0.4,
+        "support": 20
+      },
+      "residuos": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 11
       }
     }
   }
