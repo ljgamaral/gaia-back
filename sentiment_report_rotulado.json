@@ -1,35 +1,36 @@
 {
-  "source": "/Users/leandrojuniogoncalvesamaral/Desktop2/Desktop/APS4/extracted_urls.json",
+  "source": "/Users/leandrojuniogoncalvesamaral/Desktop2/Desktop/APS4/backend/extracted_urls.json",
+  "algorithm": "scikit-learn Pipeline(CountVectorizer, MultinomialNB)",
   "label_source": "human_label from sentiment_dataset_rotulado.csv",
   "total_input": 2000,
   "total_usable": 1998,
   "label_distribution": {
-    "negativo": 954,
-    "positivo": 826,
-    "neutro": 218
+    "negativo": 913,
+    "positivo": 859,
+    "neutro": 226
   },
   "training_note": "O modelo usa a coluna human_label quando um CSV rotulado e informado. Caso contrario, usa rotulos automaticos de polaridade ambiental.",
   "validation_against_training_labels": {
-    "accuracy": 0.723,
+    "accuracy": 0.76,
     "test_size": 400,
     "labels": {
       "negativo": {
-        "precision": 0.806,
-        "recall": 0.745,
-        "f1": 0.774,
-        "support": 184
+        "precision": 0.874,
+        "recall": 0.756,
+        "f1": 0.811,
+        "support": 201
       },
       "neutro": {
-        "precision": 0.479,
-        "recall": 0.404,
-        "f1": 0.438,
-        "support": 57
+        "precision": 0.833,
+        "recall": 0.435,
+        "f1": 0.571,
+        "support": 46
       },
       "positivo": {
-        "precision": 0.709,
-        "recall": 0.811,
-        "f1": 0.757,
-        "support": 159
+        "precision": 0.653,
+        "recall": 0.863,
+        "f1": 0.744,
+        "support": 153
       }
     }
   }

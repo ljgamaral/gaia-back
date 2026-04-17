@@ -3,15 +3,19 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import math
-import random
-import re
-import unicodedata
-from collections import Counter, defaultdict
+import pickle
+from collections import Counter
 from pathlib import Path
 
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import Pipeline
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+BACKEND_ROOT = Path(__file__).resolve().parent
+VALID_LABELS = {"positivo", "negativo", "neutro"}
 
 POSITIVE_TERMS = {
     "apreende": 2,
@@ -63,7 +67,7 @@ NEGATIVE_TERMS = {
     "temporal": 2,
 }
 
-STOPWORDS = {
+STOPWORDS = [
     "a",
     "as",
     "ao",
@@ -87,23 +91,25 @@ STOPWORDS = {
     "que",
     "um",
     "uma",
-}
+]
 
 
 def resolve_path(value: str) -> Path:
     path = Path(value)
     if path.is_absolute():
         return path
-    return PROJECT_ROOT / path
+    backend_path = BACKEND_ROOT / path
+    if backend_path.exists():
+        return backend_path
+    return BACKEND_ROOT.parent / path
 
 
-def normalize(text: str) -> str:
-    text = unicodedata.normalize("NFKD", text.lower())
-    return "".join(char for char in text if not unicodedata.combining(char))
+def tokenize_for_heuristic(text: str) -> list[str]:
+    import re
+    import unicodedata
 
-
-def tokenize(text: str) -> list[str]:
-    normalized = normalize(text)
+    normalized = unicodedata.normalize("NFKD", text.lower())
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
     return [
         token
         for token in re.findall(r"[a-z0-9]{3,}", normalized)
@@ -116,8 +122,7 @@ def text_for_article(article: dict) -> str:
 
 
 def heuristic_label(text: str) -> str:
-    tokens = tokenize(text)
-    counts = Counter(tokens)
+    counts = Counter(tokenize_for_heuristic(text))
     positive = sum(counts[term] * weight for term, weight in POSITIVE_TERMS.items())
     negative = sum(counts[term] * weight for term, weight in NEGATIVE_TERMS.items())
 
@@ -130,90 +135,77 @@ def heuristic_label(text: str) -> str:
     return "neutro"
 
 
-class NaiveBayesClassifier:
-    def __init__(self) -> None:
-        self.class_counts: Counter[str] = Counter()
-        self.token_counts: dict[str, Counter[str]] = defaultdict(Counter)
-        self.total_tokens: Counter[str] = Counter()
-        self.vocabulary: set[str] = set()
-
-    def fit(self, texts: list[str], labels: list[str]) -> None:
-        for text, label in zip(texts, labels):
-            self.class_counts[label] += 1
-            for token in tokenize(text):
-                self.token_counts[label][token] += 1
-                self.total_tokens[label] += 1
-                self.vocabulary.add(token)
-
-    def predict_one(self, text: str) -> tuple[str, float]:
-        tokens = tokenize(text)
-        total_docs = sum(self.class_counts.values())
-        vocab_size = max(1, len(self.vocabulary))
-        scores: dict[str, float] = {}
-
-        for label, class_count in self.class_counts.items():
-            score = math.log(class_count / total_docs)
-            denominator = self.total_tokens[label] + vocab_size
-            for token in tokens:
-                score += math.log((self.token_counts[label][token] + 1) / denominator)
-            scores[label] = score
-
-        best_label = max(scores, key=scores.get)
-        sorted_scores = sorted(scores.values(), reverse=True)
-        margin = sorted_scores[0] - sorted_scores[1] if len(sorted_scores) > 1 else 0.0
-        confidence = 1 / (1 + math.exp(-min(margin, 20)))
-        return best_label, confidence
-
-    def predict(self, texts: list[str]) -> list[tuple[str, float]]:
-        return [self.predict_one(text) for text in texts]
-
-    def to_dict(self) -> dict:
-        return {
-            "algorithm": "Multinomial Naive Bayes",
-            "class_counts": dict(self.class_counts),
-            "token_counts": {
-                label: dict(counter)
-                for label, counter in self.token_counts.items()
-            },
-            "total_tokens": dict(self.total_tokens),
-            "vocabulary": sorted(self.vocabulary),
-        }
+def build_model() -> Pipeline:
+    return Pipeline(
+        [
+            (
+                "vectorizer",
+                CountVectorizer(
+                    lowercase=True,
+                    strip_accents="unicode",
+                    token_pattern=r"(?u)\b[a-z0-9]{3,}\b",
+                    stop_words=STOPWORDS,
+                    ngram_range=(1, 2),
+                    min_df=2,
+                ),
+            ),
+            ("classifier", MultinomialNB(alpha=1.0)),
+        ]
+    )
 
 
-def train_test_report(texts: list[str], labels: list[str], seed: int) -> dict:
-    indexes = list(range(len(texts)))
-    random.Random(seed).shuffle(indexes)
-    split = max(1, int(len(indexes) * 0.8))
-    train_indexes = indexes[:split]
-    test_indexes = indexes[split:] or indexes[:]
+def load_articles(path: Path) -> list[dict]:
+    articles = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(articles, dict):
+        return [articles]
+    if isinstance(articles, list):
+        return articles
+    raise ValueError(f"Formato invalido em {path}")
 
-    model = NaiveBayesClassifier()
-    model.fit([texts[i] for i in train_indexes], [labels[i] for i in train_indexes])
-    predictions = [model.predict_one(texts[i])[0] for i in test_indexes]
 
-    labels_seen = sorted(set(labels))
-    per_label = {}
-    correct = 0
-    for label in labels_seen:
-        tp = sum(1 for i, pred in zip(test_indexes, predictions) if labels[i] == label and pred == label)
-        fp = sum(1 for i, pred in zip(test_indexes, predictions) if labels[i] != label and pred == label)
-        fn = sum(1 for i, pred in zip(test_indexes, predictions) if labels[i] == label and pred != label)
-        support = sum(1 for i in test_indexes if labels[i] == label)
-        precision = tp / (tp + fp) if tp + fp else 0.0
-        recall = tp / (tp + fn) if tp + fn else 0.0
-        f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
-        per_label[label] = {
-            "precision": round(precision, 3),
-            "recall": round(recall, 3),
-            "f1": round(f1, 3),
-            "support": support,
-        }
-    correct = sum(1 for i, pred in zip(test_indexes, predictions) if labels[i] == pred)
+def load_human_labels(path: str) -> dict[str, str]:
+    if not path:
+        return {}
+
+    labels: dict[str, str] = {}
+    with resolve_path(path).open(encoding="utf-8", newline="") as csv_file:
+        for row in csv.DictReader(csv_file):
+            url = (row.get("url") or "").strip()
+            label = (row.get("human_label") or "").strip()
+            if url and label in VALID_LABELS:
+                labels[url] = label
+    return labels
+
+
+def make_report(labels: list[str], predictions: list[str]) -> dict:
+    report = classification_report(
+        labels,
+        predictions,
+        labels=sorted(VALID_LABELS),
+        output_dict=True,
+        zero_division=0,
+    )
     return {
-        "accuracy": round(correct / len(test_indexes), 3),
-        "test_size": len(test_indexes),
-        "labels": per_label,
+        "accuracy": round(accuracy_score(labels, predictions), 3),
+        "test_size": len(labels),
+        "labels": {
+            label: {
+                "precision": round(metrics["precision"], 3),
+                "recall": round(metrics["recall"], 3),
+                "f1": round(metrics["f1-score"], 3),
+                "support": int(metrics["support"]),
+            }
+            for label, metrics in report.items()
+            if label in VALID_LABELS
+        },
     }
+
+
+def prediction_confidences(model: Pipeline, texts: list[str]) -> list[float]:
+    if not hasattr(model, "predict_proba"):
+        return [0.0 for _ in texts]
+    probabilities = model.predict_proba(texts)
+    return [round(float(row.max()), 3) for row in probabilities]
 
 
 def main() -> None:
@@ -222,66 +214,72 @@ def main() -> None:
     parser.add_argument("--labels-csv", default="")
     parser.add_argument("--output-json", default="classified_articles.json")
     parser.add_argument("--output-csv", default="sentiment_dataset.csv")
-    parser.add_argument("--model-out", default="sentiment_model.json")
+    parser.add_argument("--model-out", default="sentiment_model.pkl")
     parser.add_argument("--report-out", default="sentiment_report.json")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
     input_path = resolve_path(args.input)
-    articles = json.loads(input_path.read_text(encoding="utf-8"))
-    if isinstance(articles, dict):
-        articles = [articles]
-
+    articles = load_articles(input_path)
     usable = [article for article in articles if not article.get("error") and text_for_article(article)]
     texts = [text_for_article(article) for article in usable]
     initial_labels = [heuristic_label(text) for text in texts]
-    training_labels = initial_labels
-    label_source = "heuristic"
+    human_labels = load_human_labels(args.labels_csv)
+    training_labels = [
+        human_labels.get(article.get("url", ""), initial_label)
+        for article, initial_label in zip(usable, initial_labels)
+    ]
+    label_source = f"human_label from {args.labels_csv}" if human_labels else "heuristic"
 
-    if args.labels_csv:
-        label_rows = {}
-        with resolve_path(args.labels_csv).open(encoding="utf-8", newline="") as csv_file:
-            for row in csv.DictReader(csv_file):
-                label = (row.get("human_label") or "").strip()
-                url = (row.get("url") or "").strip()
-                if url and label in {"positivo", "negativo", "neutro"}:
-                    label_rows[url] = label
-        training_labels = [
-            label_rows.get(article.get("url", ""), initial_label)
-            for article, initial_label in zip(usable, initial_labels)
-        ]
-        label_source = f"human_label from {args.labels_csv}"
+    stratify = training_labels if min(Counter(training_labels).values()) > 1 else None
+    train_texts, test_texts, train_labels, test_labels = train_test_split(
+        texts,
+        training_labels,
+        test_size=0.2,
+        random_state=args.seed,
+        stratify=stratify,
+    )
 
-    model = NaiveBayesClassifier()
+    validation_model = build_model()
+    validation_model.fit(train_texts, train_labels)
+    test_predictions = validation_model.predict(test_texts).tolist()
+
+    model = build_model()
     model.fit(texts, training_labels)
-    predictions = model.predict(texts)
+    predictions = model.predict(texts).tolist()
+    confidences = prediction_confidences(model, texts)
 
     classified = []
-    for article, initial_label, training_label, (predicted_label, confidence) in zip(
+    for article, initial_label, training_label, predicted_label, confidence in zip(
         usable,
         initial_labels,
         training_labels,
         predictions,
+        confidences,
     ):
         row = dict(article)
         row["heuristic_label"] = initial_label
         row["training_label"] = training_label
         row["sentiment"] = predicted_label
-        row["sentiment_confidence"] = round(confidence, 3)
+        row["sentiment_confidence"] = confidence
         classified.append(row)
 
     report = {
         "source": str(input_path),
+        "algorithm": "scikit-learn Pipeline(CountVectorizer, MultinomialNB)",
         "label_source": label_source,
         "total_input": len(articles),
         "total_usable": len(usable),
-        "label_distribution": dict(Counter(item["sentiment"] for item in classified)),
+        "label_distribution": dict(Counter(predictions)),
         "training_note": (
             "O modelo usa a coluna human_label quando um CSV rotulado e informado. "
             "Caso contrario, usa rotulos automaticos de polaridade ambiental."
         ),
-        "validation_against_training_labels": train_test_report(texts, training_labels, args.seed),
+        "validation_against_training_labels": make_report(test_labels, test_predictions),
     }
+
+    with resolve_path(args.model_out).open("wb") as model_file:
+        pickle.dump(model, model_file)
 
     resolve_path(args.output_json).write_text(
         json.dumps(classified, ensure_ascii=False, indent=2),
@@ -289,10 +287,6 @@ def main() -> None:
     )
     resolve_path(args.report_out).write_text(
         json.dumps(report, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    resolve_path(args.model_out).write_text(
-        json.dumps(model.to_dict(), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 

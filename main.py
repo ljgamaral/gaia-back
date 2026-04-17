@@ -3,7 +3,7 @@ from extraction import load_urls, extract_many, save_articles
 from typing import Optional, List
 from pydantic import HttpUrl, BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from label_sentiment import label_row
+from model_predictor import predict_sentiment
 
 app = FastAPI()
 
@@ -49,17 +49,15 @@ def analyze(request: AnalyzeRequest) -> dict:
         try:
             content = extract_many([request.content], continue_on_error=False, timeout_seconds=5, max_workers=1)
             article = content[0]
-            label, reason = label_row({
-                "title": article.get("title", ""),
-                "text": article.get("content", ""),
-            })
+            label, confidence = predict_sentiment(article.get("title", "") + "\n" + article.get("content", ""))
         except Exception as e:
             return {"success": False, "error": str(e)}
         return {
             "success": True,
             "content": {
                 "label": label,
-                "reason": reason,
+                "confidence": confidence,
+                "reason": f"Modelo scikit-learn com confiança {confidence}",
                 "title": article.get("title", ""),
                 "text": article.get("content", ""),
             }
@@ -67,17 +65,15 @@ def analyze(request: AnalyzeRequest) -> dict:
         
     elif request.type == "text":
         try:
-            label, reason = label_row({
-                "title": "Texto fornecido pelo usuário",
-                "text": request.content,
-            })
+            label, confidence = predict_sentiment(request.content)
         except Exception as e:
             return {"success": False, "error": str(e)}
         return {
             "success": True,
             "content": {
                 "label": label,
-                "reason": reason,
+                "confidence": confidence,
+                "reason": f"Modelo scikit-learn com confiança {confidence}",
                 "title": "Texto fornecido pelo usuário",
                 "text": request.content,
             }

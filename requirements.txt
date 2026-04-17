@@ -3,3 +3,4 @@ uvicorn[standard]
 pydantic
 httpx
 beautifulsoup4
+scikit-learn==1.4.2
