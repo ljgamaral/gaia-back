@@ -4,6 +4,7 @@ from typing import Optional, List
 from pydantic import HttpUrl, BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from model_predictor import predict_sentiment, predict_topic
+import json
 
 app = FastAPI()
 
@@ -87,3 +88,7 @@ def analyze(request: AnalyzeRequest) -> dict:
         }
     
     return {"success": False, "error": "Tipo de análise inválido."}
+
+@app.get("/train/informations")
+def informations() -> dict:
+    return json.load(open("sentiment_report_rotulado.json"))
